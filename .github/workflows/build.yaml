@@ -37,11 +37,11 @@ jobs:
           sudo add-apt-repository ppa:texus/raylib
           sudo apt-get update
           sudo apt-get install -y libraylib5-dev
-          sudo apt-get install sudo apt install libgl1-mesa-dev
+          sudo apt-get install sudo apt install libgl-dev
 
       - name: Compile
         run: |
-          g++ *.cpp -o game -lraylib -lGL -lm -lpthread -ldl
+          g++ main.cpp button.cpp -o game -lraylib -lGL -lm -lpthread -ldl -lrt
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
