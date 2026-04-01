@@ -1,70 +1,67 @@
-name: Build Executables
+name: Cross-Platform Build
 
 on:
-  push
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-  build_win:
-    runs-on: windows-latest
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install raylib
+      # --- Dependency Installation ---
+      
+      - name: Install Dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          choco install raylib -y
-
-      - name: Compile
-        run: |
-          g++ *.cpp -o game.exe -lraylib -lopengl32 -lgdi32 -lwinmm
-
-      - name: Upload executable
-        uses: actions/upload-artifact@v4
-        with:
-          name: game-windows
-          path: game-win.exe
-    
-  build_linux:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Install raylib
-        run: |
-          sudo add-apt-repository ppa:texus/raylib
           sudo apt-get update
-          sudo apt-get install -y libraylib5-dev
-          sudo apt-get install sudo apt install libgl-dev
+          sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev libxkbcommon-dev
 
-      - name: Compile
+      - name: Install raylib (vcpkg for Windows/Mac)
+        if: matrix.os != 'ubuntu-latest'
+        run: vcpkg install raylib
+
+      - name: Install raylib (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          g++ main.cpp button.cpp -o game -lraylib -lGL -lm -lpthread -ldl -lrt
+          git clone --depth 1 https://github.com/raysan5/raylib.git
+          cd raylib/src
+          make PLATFORM=PLATFORM_DESKTOP
+          sudo make install
 
-      - name: Upload executable
+      # --- Compilation Step ---
+
+      - name: Build Project (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          g++ main.cpp button.cpp -o game.exe -lraylib -lgdi32 -lwinmm
+
+      - name: Build Project (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          g++ main.cpp button.cpp -o game -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+
+      - name: Build Project (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          g++ main.cpp button.cpp -o game -lraylib -framework IOKit -framework Cocoa -framework OpenGL
+
+      # --- Artifact Upload ---
+
+      - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
-          path: game
-          name: game-linux
-  
-  build_mac:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Install raylib
-        run: |
-          brew install raylib
-
-      - name: Compile
-        run: |
-          g++ *.cpp -o game -lraylib -framework OpenGL -framework Cocoa -framework IOKit
-
-      - name: Upload executable
-        uses: actions/upload-artifact@v4
-        with:
-          name: game-mac-arm64
-          path: game
+          name: manual-build-${{ matrix.os }}
+          path: |
+            game
+            game.exe
