@@ -34,8 +34,9 @@ jobs:
 
       - name: Install raylib
         run: |
+          sudo add-apt-repository ppa:texus/raylib
           sudo apt-get update
-          sudo apt-get install -y libraylib-dev
+          sudo apt-get install -y libraylib5-dev
 
       - name: Compile
         run: |
@@ -46,3 +47,23 @@ jobs:
         with:
           path: game
           name: game-linux
+  
+  build_mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install raylib
+        run: |
+          brew install raylib
+
+      - name: Compile
+        run: |
+          g++ *.cpp -o game -lraylib -framework OpenGL -framework Cocoa -framework IOKit
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-mac-arm64
+          path: game
