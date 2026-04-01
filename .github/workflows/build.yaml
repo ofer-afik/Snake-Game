@@ -37,6 +37,7 @@ jobs:
           sudo add-apt-repository ppa:texus/raylib
           sudo apt-get update
           sudo apt-get install -y libraylib5-dev
+          sudo apt-get install sudo apt install libgl1-mesa-dev
 
       - name: Compile
         run: |
