@@ -1,85 +1,70 @@
-name: Cross-Platform Build
+name: Build Snake-Game
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --- 1. INSTALL DEPENDENCIES ---
-
-      - name: Install Deps (Ubuntu)
+      - name: Install dependencies on Ubuntu
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev libxkbcommon-dev libgl1-mesa-dev
+          sudo apt-get install -y cmake build-essential git libopenal-dev libudev-dev libx11-dev libxcb1-dev libxcb-glx0-dev libxcursor-dev libxrandr-dev libxi-dev libxinerama-dev libgl1-mesa-dev
 
-      - name: Install raylib (MacOS)
-        if: matrix.os == 'macos-latest'
-        run: brew install raylib
-
-      - name: Install raylib (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          vcpkg install raylib:x64-windows
-          # We force vcpkg to integrate so the system can find it more easily
-          vcpkg integrate install
-
-      # --- 2. BUILD RAYLIB FROM SOURCE (LINUX ONLY) ---
-      # Ubuntu's apt version of raylib is often outdated or missing, so source is safer.
-      - name: Build raylib (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          git clone --depth 1 https://github.com/raysan5/raylib.git
-          cd raylib/src
-          make PLATFORM=PLATFORM_DESKTOP
-          sudo make install
-
-      # --- 3. COMPILATION ---
-
-      - name: Build Project (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          $VCPKG_PATH = "C:\vcpkg\installed\x64-windows"
-          g++ main.cpp button.cpp -o game.exe `
-          -I"$VCPKG_PATH\include" `
-          -L"$VCPKG_PATH\lib" `
-          -lraylib -lgdi32 -lwinmm -luser32 -lshell32
-
-      - name: Build Project (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          g++ main.cpp button.cpp -o game \
-          -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
-
-      - name: Build Project (macOS)
+      - name: Install dependencies on macOS
         if: matrix.os == 'macos-latest'
         run: |
-          # Brew installs to /usr/local or /opt/homebrew
-          g++ main.cpp button.cpp -o game \
-          -I/usr/local/include -L/usr/local/lib \
-          -I/opt/homebrew/include -L/opt/homebrew/lib \
-          -lraylib -framework IOKit -framework Cocoa -framework OpenGL
+          brew update
+          brew install cmake
 
-      # --- 4. ARTIFACTS ---
+      - name: Install dependencies on Windows
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          choco install -y cmake git
+          refreshenv
 
-      - name: Upload Binary
+      - name: Configure CMake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build executable
+        run: cmake --build build --config Release --parallel
+
+      - name: Display build result on Windows
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path build\bin
+
+      - name: Display build result on Linux/macOS
+        if: matrix.os != 'windows-latest'
+        run: |
+          ls build/bin
+
+      - name: Upload Linux/Windows artifacts
+        if: matrix.os != 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.os }}
-          path: |
-            game
-            game.exe
+          name: Snake-Game-${{ matrix.os }}
+          path: build/bin
+
+      - name: Upload macOS app
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Snake-Game-macos-latest
+          path: build/bin/Snake-Game.app
